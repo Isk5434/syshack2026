@@ -58,44 +58,6 @@ function selectLocation(id, name) {
     document.querySelector('.sidebar').scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 投稿する
-function submitPost() {
-    const locId = parseInt(document.getElementById('location').value);
-    const locName = locationNames[locId];
-    const menu = document.getElementById('menu').value.trim();
-    const levelInput = document.querySelector('input[name="level"]:checked');
-
-    if (!menu) {
-        alert("コメントを入力してください。");
-        return;
-    }
-    if (!levelInput) {
-        alert("混雑レベルを選択してください。");
-        return;
-    }
-
-    const level = parseInt(levelInput.value);
-
-    // 投稿データに追加
-    if (!posts[locId]) posts[locId] = [];
-    posts[locId].push({ level, text: menu });
-
-    // 最近の投稿リストに追加
-    const postList = document.getElementById('post-list');
-    const newPost = document.createElement('div');
-    newPost.className = 'post-item';
-    newPost.innerHTML = `
-        <strong>${locName}</strong>
-        <span class="crowd-badge ${crowdClasses[level]}">${crowdLabels[level]}</span><br>
-        <small>「${menu}」</small>
-    `;
-    postList.prepend(newPost);
-
-    // フォームリセット
-    document.getElementById('status-form').reset();
-    alert("投稿ありがとうございました！");
-}
-
 // ===== 画像マップのスケーリング =====
 function getImageRect(img) {
     const nw = img.naturalWidth;
@@ -147,3 +109,85 @@ const mapImg = document.getElementById('campus-map');
 mapImg.addEventListener('load', scaleImageMap);
 if (mapImg.complete) scaleImageMap();
 window.addEventListener('resize', scaleImageMap);
+
+import { db } from "./firebase.js";
+import { collection, addDoc, query, where, getDocs, serverTimestamp } from "firebase/firestore";
+
+// 投稿をFirebaseに保存する（ローカルUIも更新）
+async function submitPost() {
+    const locationId = parseInt(document.getElementById('location').value);
+    const comment = document.getElementById('menu').value.trim();
+    const levelInput = document.querySelector('input[name="level"]:checked');
+
+    if (!comment) {
+        alert("コメントを入力してください。");
+        return;
+    }
+    if (!levelInput) {
+        alert("混雑レベルを選択してください。");
+        return;
+    }
+
+    const level = parseInt(levelInput.value);
+    const locName = locationNames[locationId] || "不明な場所";
+
+    // ローカル表示に追加
+    if (!posts[locationId]) posts[locationId] = [];
+    posts[locationId].push({ level, text: comment });
+
+    const postList = document.getElementById('post-list');
+    const newPost = document.createElement('div');
+    newPost.className = 'post-item';
+    newPost.innerHTML = `
+        <strong>${locName}</strong>
+        <span class="crowd-badge ${crowdClasses[level]}">${crowdLabels[level]}</span><br>
+        <small>「${comment}」</small>
+    `;
+    postList.prepend(newPost);
+
+    // 直後にサイドバーを更新
+    selectLocation(locationId, locName);
+
+    try {
+        await addDoc(collection(db, "posts"), {
+            locationId: locationId,
+            level: level,
+            comment: comment,
+            timestamp: serverTimestamp()
+        });
+
+        alert("投稿しました！");
+    } catch (e) {
+        console.error("Error adding document: ", e);
+        alert("投稿を保存できませんでした。ネットワークまたはFireStore設定を確認してください。");
+    }
+
+    document.getElementById('status-form').reset();
+    updateAverageCrowd(locationId);
+}
+
+// グローバル関数化（モジュールとインラインイベント対応）
+window.selectLocation = selectLocation;
+window.submitPost = submitPost;
+
+// 特定の場所の混雑度を平均化して算出する
+async function updateAverageCrowd(locationId) {
+    const q = query(collection(db, "posts"), where("locationId", "==", locationId));
+    const querySnapshot = await getDocs(q);
+    
+    let totalLevel = 0;
+    let count = 0;
+
+    querySnapshot.forEach((doc) => {
+        totalLevel += doc.data().level;
+        count++;
+    });
+
+    const average = count > 0 ? (totalLevel / count).toFixed(1) : 0;
+    
+    // UIへの反映（例：3段階評価に丸める場合）
+    const roundedLevel = Math.round(average);
+    console.log(`場所ID: ${locationId} の平均混雑度: ${average} (判定: ${roundedLevel})`);
+    
+    return { average, roundedLevel };
+}

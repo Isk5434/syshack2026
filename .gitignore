@@ -4,4 +4,7 @@ __pycache__/
 __MACOSX/
 *.pyc
 .DS_Store
+.vscode/
+*.local
+dist/
 .claude/settings.local.json

@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "simulator-frontend",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5175"],
+      "cwd": "syshack2026/syshack2026/simulator/frontend",
+      "port": 5175
+    }
+  ]
+}

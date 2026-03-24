@@ -1,0 +1,282 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    height: 100vh;
+    overflow: hidden;
+    color: white;
+}
+
+/* ヘッダー */
+header {
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+header h1 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.95);
+}
+
+/* メインレイアウト */
+.layout {
+    display: flex;
+    height: calc(100vh - 54px);
+}
+
+/* マップエリア */
+.map-section {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #0a1628;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#campus-map {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    cursor: crosshair;
+}
+
+/* 右サイドバー */
+.sidebar {
+    width: 340px;
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 4px;
+}
+
+/* すりガラスカード */
+.glass {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 14px;
+    padding: 18px;
+}
+
+.glass h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* 場所情報カード */
+.location-info {
+    min-height: 100px;
+}
+
+.placeholder-text {
+    text-align: center;
+    padding: 16px 0;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.placeholder-text .pin-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.placeholder-text p {
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+#info-content h2 {
+    font-size: 1.1rem;
+    border-bottom: none;
+    margin-bottom: 8px;
+    padding-bottom: 0;
+}
+
+.info-posts-list {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.75);
+}
+
+/* フォーム */
+.post-form label {
+    display: block;
+    margin-top: 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 0.03em;
+}
+
+select, textarea {
+    width: 100%;
+    padding: 8px 12px;
+    margin-top: 5px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+select option {
+    background: #1e3a4a;
+    color: white;
+}
+
+select:focus, textarea:focus {
+    border-color: rgba(100, 180, 255, 0.6);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 75px;
+    font-family: inherit;
+}
+
+textarea::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+fieldset {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 12px;
+}
+
+fieldset legend {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+    padding: 0 4px;
+}
+
+.radio-group {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+    font-weight: normal !important;
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    margin-top: 0 !important;
+    background: rgba(255,255,255,0.08);
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+    transition: background 0.15s;
+}
+
+.radio-label:hover {
+    background: rgba(255,255,255,0.18);
+}
+
+.radio-label input[type="radio"] {
+    accent-color: #64b4ff;
+}
+
+button[type="button"] {
+    width: 100%;
+    padding: 10px;
+    margin-top: 14px;
+    background: rgba(52, 152, 219, 0.7);
+    color: white;
+    border: 1px solid rgba(52, 152, 219, 0.5);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    transition: background 0.2s, transform 0.1s;
+    backdrop-filter: blur(4px);
+}
+
+button[type="button"]:hover {
+    background: rgba(52, 152, 219, 0.95);
+}
+
+button[type="button"]:active {
+    transform: scale(0.98);
+}
+
+/* 投稿リスト */
+.post-item {
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.post-item:last-child {
+    border-bottom: none;
+}
+
+.post-item strong {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.post-item small {
+    color: rgba(255, 255, 255, 0.6);
+    display: block;
+    margin-top: 3px;
+}
+
+/* 混雑バッジ */
+.crowd-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.crowd-low  { background: rgba(39, 174, 96, 0.3);  color: #a8e6c0; border: 1px solid rgba(39,174,96,0.6); }
+.crowd-mid  { background: rgba(243, 156, 18, 0.3); color: #f8d07a; border: 1px solid rgba(243,156,18,0.6); }
+.crowd-high { background: rgba(231, 76, 60, 0.3);  color: #f4a8a1; border: 1px solid rgba(231,76,60,0.6); }

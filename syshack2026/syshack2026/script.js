@@ -147,3 +147,7 @@ const mapImg = document.getElementById('campus-map');
 mapImg.addEventListener('load', scaleImageMap);
 if (mapImg.complete) scaleImageMap();
 window.addEventListener('resize', scaleImageMap);
+
+// モジュールスコープからHTML onclickで呼べるようにグローバル登録
+window.selectLocation = selectLocation;
+window.submitPost = submitPost;

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>キャンパス学食ナビ</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>キャンパス学食マップ</h1>
+    </header>
+
+    <div class="layout">
+        <!-- マップエリア -->
+        <div class="map-section">
+            <img src="m1.jpg" usemap="#ImageMap" alt="キャンパスマップ" id="campus-map" />
+            <map name="ImageMap">
+                <area shape="circle" coords="487,480,35" href="#" onclick="selectLocation(1, 'アロハカフェ'); return false;" alt="アロハカフェ" />
+                <area shape="circle" coords="612,414,75" href="#" onclick="selectLocation(3, 'AITプラザ'); return false;" alt="AITプラザ" />
+                <area shape="circle" coords="758,440,95" href="#" onclick="selectLocation(2, 'セントラル'); return false;" alt="セントラル" />
+            </map>
+        </div>
+
+        <!-- 右サイドバー -->
+        <div class="sidebar">
+
+            <!-- 場所情報 -->
+            <div class="glass location-info" id="location-info">
+                <div class="placeholder-text" id="info-placeholder">
+                    <span class="pin-icon">📍</span>
+                    <p>マップ上の学食をクリックすると<br>詳細が表示されます</p>
+                </div>
+                <div id="info-content" style="display:none;">
+                    <h2 id="info-name"></h2>
+                    <div id="info-crowd"></div>
+                    <div id="info-posts" class="info-posts-list"></div>
+                </div>
+            </div>
+
+            <!-- 投稿フォーム -->
+            <div class="glass post-form">
+                <h2>状況を投稿する</h2>
+                <form id="status-form">
+                    <label for="location">場所</label>
+                    <select id="location">
+                        <option value="1">アロハカフェ</option>
+                        <option value="2">セントラル</option>
+                        <option value="3">AITプラザ</option>
+                        <option value="4">愛和会館</option>
+                        <option value="5">四号館売店</option>
+                        <option value="6">キッチンカー（一号館前）</option>
+                        <option value="7">キッチンカー（セントラル前）</option>
+                    </select>
+
+                    <fieldset>
+                        <legend>混雑レベル</legend>
+                        <div class="radio-group">
+                            <label class="radio-label"><input type="radio" name="level" value="1" id="lv1"> 空いている</label>
+                            <label class="radio-label"><input type="radio" name="level" value="2" id="lv2"> 普通</label>
+                            <label class="radio-label"><input type="radio" name="level" value="3" id="lv3"> 混雑</label>
+                        </div>
+                    </fieldset>
+
+                    <label for="menu">コメント</label>
+                    <textarea id="menu" placeholder="例：今日の日替わりは唐揚げ定食でした！"></textarea>
+
+                    <button type="button" onclick="submitPost()">投稿する</button>
+                </form>
+            </div>
+
+            <!-- 最近の投稿 -->
+            <div class="glass recent-posts">
+                <h2>最近の投稿</h2>
+                <div id="post-list">
+                    <div class="post-item">
+                        <strong>学生食堂1号館</strong>
+                        <span class="crowd-badge crowd-mid">普通</span><br>
+                        <small>「日替わりのハンバーグが美味しかったです！」</small>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

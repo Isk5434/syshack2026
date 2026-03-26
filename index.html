@@ -9,6 +9,13 @@
 <body>
     <header>
         <h1>キャンパス学食マップ</h1>
+        <div id="auth-section">
+            <div id="user-info" style="display: none;">
+                <span id="user-name"></span>
+                <button id="logout-btn">ログアウト</button>
+            </div>
+            <button id="login-btn" style="display: none;">Googleでログイン</button>
+        </div>
     </header>
 
     <div class="layout">
@@ -46,6 +53,9 @@
             <!-- 投稿フォーム -->
             <div class="glass post-form">
                 <h2>状況を投稿する</h2>
+                <div id="login-required" style="display: none; color: #ff6b6b; margin-bottom: 10px; font-size: 0.9rem;">
+                    ※ 投稿するにはログインが必要です
+                </div>
                 <form id="status-form">
                     <label for="location">場所</label>
                     <select id="location">

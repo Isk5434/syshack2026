@@ -1,6 +1,6 @@
 // 投稿データ（場所IDごとに管理）
 const posts = {
-    1: [{ level: 2, text: "日替わりのハンバーグが美味しかったです！" }],
+    1: [],
     2: [],
     3: [],
     4: [],
@@ -113,7 +113,7 @@ if (mapImg.complete) scaleImageMap();
 window.addEventListener('resize', scaleImageMap);
 
 import { db, signInWithGoogle, signOutUser, onAuthStateChange } from "./firebase.js";
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, where, getDocs } from "firebase/firestore";
 
 // 投稿をFirebaseに保存する（リアルタイムリスナーがUIを自動更新）
 async function submitPost() {

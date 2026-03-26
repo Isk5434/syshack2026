@@ -2,11 +2,25 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "campus-map",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5176"],
+      "cwd": "syshack2026/syshack2026",
+      "port": 5176
+    },
+    {
+      "name": "simulator-backend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"],
+      "cwd": "simulator/backend",
+      "port": 8001
+    },
+    {
       "name": "simulator-frontend",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5175"],
-      "cwd": "syshack2026/syshack2026/simulator/frontend",
-      "port": 5175
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5173"],
+      "cwd": "simulator/frontend",
+      "port": 5173
     }
   ]
 }

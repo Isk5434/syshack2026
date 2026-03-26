@@ -31,6 +31,27 @@ header h1 {
     color: rgba(255, 255, 255, 0.95);
 }
 
+.sim-btn {
+    position: absolute;
+    right: 20px;
+    padding: 7px 16px;
+    background: rgba(52, 211, 153, 0.2);
+    color: #6ee7b7;
+    border: 1px solid rgba(52, 211, 153, 0.4);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: 0.03em;
+    transition: background 0.2s, transform 0.1s;
+    backdrop-filter: blur(4px);
+}
+
+.sim-btn:hover {
+    background: rgba(52, 211, 153, 0.35);
+    transform: scale(1.03);
+}
+
 /* メインレイアウト */
 .layout {
     display: flex;

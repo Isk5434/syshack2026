@@ -1,16 +1,24 @@
 import React, { useState } from "react";
 import { SimulationCanvas } from "./components/SimulationCanvas";
+import { EditorCanvas }     from "./components/EditorCanvas";
 import { ControlPanel }     from "./components/ControlPanel";
 import { StatsPanel }       from "./components/StatsPanel";
+import { RLPanel }          from "./components/RLPanel";
+import { Legend }           from "./components/Legend";
 import { useSimulation }    from "./hooks/useSimulation";
+import { useRL }            from "./hooks/useRL";
+import type { NodeType }    from "./types";
 
 export default function App() {
   const {
     layout, state, connected, running,
-    play, pause, reset, step, setSpeed, updateConfig,
+    play, pause, reset, step, setSpeed, updateConfig, updateLayout,
   } = useSimulation();
 
+  const { rl, train: rlTrain, stop: rlStop, apply: rlApply } = useRL();
+
   const [showHeatmap, setShowHeatmap] = useState(true);
+  const [editMode, setEditMode] = useState(false);
 
   // Responsive cell size: fill available width
   const canvasAreaW = typeof window !== "undefined"
@@ -20,9 +28,14 @@ export default function App() {
     ? Math.floor(Math.min(canvasAreaW / layout.W, (window.innerHeight - 80) / layout.H))
     : 16;
 
+  const handleApplyLayout = (cells: NodeType[][]) => {
+    updateLayout(cells);
+    setEditMode(false);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white overflow-hidden">
-      {/* ── Header ──────────────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between px-6 py-3 bg-gray-900/80 border-b border-gray-800 backdrop-blur">
         <div>
           <h1 className="text-base font-bold tracking-tight">
@@ -39,6 +52,19 @@ export default function App() {
               step {state.step}
             </span>
           )}
+          <button
+            onClick={() => {
+              if (!editMode && running) pause();
+              setEditMode(v => !v);
+            }}
+            className={`text-xs px-3 py-1 rounded border transition-all ${
+              editMode
+                ? "bg-blue-600 border-blue-400 text-white"
+                : "border-gray-600 text-gray-300 hover:border-gray-400"
+            }`}
+          >
+            {editMode ? "✏️ 編集中" : "✏️ レイアウト編集"}
+          </button>
           <span className={`text-xs px-2 py-1 rounded-full border ${
             connected
               ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
@@ -49,18 +75,26 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Body ────────────────────────────────────────────────── */}
+      {/* ── Body ────────────────────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
 
         {/* Canvas area */}
         <div className="flex-1 flex items-center justify-center bg-gray-950 p-4 overflow-auto">
           {layout ? (
-            <SimulationCanvas
-              layout={layout}
-              state={state}
-              showHeatmap={showHeatmap}
-              cellSize={cellSize}
-            />
+            editMode ? (
+              <EditorCanvas
+                layout={layout}
+                cellSize={cellSize}
+                onApply={handleApplyLayout}
+              />
+            ) : (
+              <SimulationCanvas
+                layout={layout}
+                state={state}
+                showHeatmap={showHeatmap}
+                cellSize={cellSize}
+              />
+            )
           ) : (
             <div className="text-gray-600 text-sm animate-pulse">
               バックエンド起動待機中…<br />
@@ -93,7 +127,7 @@ export default function App() {
           </div>
 
           {/* Stats Panel */}
-          <div className="p-4">
+          <div className="p-4 border-b border-gray-800">
             <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">
               リアルタイム分析
             </p>
@@ -102,6 +136,28 @@ export default function App() {
               step={state?.step ?? 0}
             />
           </div>
+
+          {/* RL Panel */}
+          <div className="p-4 border-b border-gray-800">
+            <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">
+              🧠 AI レイアウト最適化 (PPO)
+            </p>
+            <RLPanel
+              rl={rl}
+              onTrain={(ts, sim, swaps) => rlTrain(ts, sim, swaps)}
+              onStop={rlStop}
+              onApply={async () => {
+                const ok = await rlApply();
+                if (ok) {
+                  // Re-fetch layout after apply
+                  reset();
+                }
+              }}
+            />
+          </div>
+
+          {/* Legend */}
+          <Legend />
         </div>
       </div>
     </div>

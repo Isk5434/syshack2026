@@ -3,12 +3,20 @@ FastAPI server for the cafeteria simulation.
 
 Endpoints
 ---------
-GET  /layout        – static grid layout (called once on frontend init)
-GET  /state         – current simulation snapshot
-POST /step          – advance N steps (default 1)
-POST /config        – update parameters live (what-if analysis)
-POST /reset         – rebuild model with current config
-WS   /ws            – real-time WebSocket stream (pushes state each step)
+GET  /layout           – static grid layout (called once on frontend init)
+GET  /state            – current simulation snapshot
+POST /step             – advance N steps (default 1)
+POST /config           – update parameters live (what-if analysis)
+POST /reset            – rebuild model with current config
+POST /layout/update    – apply custom grid layout
+WS   /ws               – real-time WebSocket stream (pushes state each step)
+
+RL endpoints
+------------
+POST /rl/train         – start PPO training in background
+POST /rl/stop          – stop training
+GET  /rl/status        – training progress + best layout
+POST /rl/apply         – apply best RL layout to the simulation
 
 Run:
     uvicorn main:app --reload --port 8000
@@ -17,7 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Set
+from typing import List, Set
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -90,6 +98,9 @@ class ConfigUpdate(BaseModel):
     n_ticket_machines:  int   = Field(3,    ge=1,   le=6)
     staff_service_time: int   = Field(10,   ge=2,   le=30)
 
+class LayoutUpdate(BaseModel):
+    cells: List[List[str]]
+
 class StepRequest(BaseModel):
     n: int = Field(1, ge=1, le=100)
 
@@ -145,6 +156,26 @@ async def update_config(cfg: ConfigUpdate) -> dict:
     return {"ok": True, "rebuilt": needs_rebuild}
 
 
+@app.post("/layout/update")
+async def update_layout(req: LayoutUpdate) -> dict:
+    """Apply a custom layout and rebuild the simulation model."""
+    global model, _running
+    _running = False
+    from grid_layout import GridLayout
+    new_layout = GridLayout.from_cells(req.cells)
+    model = CafeteriaModel(
+        spawn_rate=model.spawn_rate,
+        n_staff=model.n_staff,
+        n_ticket_machines=model.n_ticket_machines,
+        staff_service_time=model.staff_service_time,
+        custom_layout=new_layout,
+    )
+    # Broadcast new layout to all WebSocket clients
+    payload = json.dumps({"type": "layout", "data": new_layout.to_serializable()})
+    await manager.broadcast(payload)
+    return {"ok": True, "layout": new_layout.to_serializable()}
+
+
 @app.post("/reset")
 async def reset_model() -> dict:
     global model, _running
@@ -181,8 +212,9 @@ async def set_speed(req: SpeedRequest) -> dict:
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
     await manager.connect(ws)
-    # Send layout immediately
+    # Send layout + initial state immediately
     await ws.send_text(json.dumps({"type": "layout", "data": model.layout.to_serializable()}))
+    await ws.send_text(json.dumps({"type": "state", "data": model.collect_state()}))
     try:
         while True:
             if _running:
@@ -195,8 +227,76 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 
 
 # ---------------------------------------------------------------------------
+# RL endpoints
+# ---------------------------------------------------------------------------
+
+from train_rl import get_training_state, start_training, stop_training
+
+
+class RLTrainRequest(BaseModel):
+    total_timesteps: int = Field(5000, ge=100, le=100_000)
+    sim_steps:       int = Field(100,  ge=20,  le=500)
+    max_swaps:       int = Field(20,   ge=5,   le=100)
+
+
+@app.post("/rl/train")
+async def rl_train(req: RLTrainRequest) -> dict:
+    """Kick off PPO training in a daemon thread."""
+    config = {
+        "spawn_rate":         model.spawn_rate,
+        "n_staff":            model.n_staff,
+        "n_ticket_machines":  model.n_ticket_machines,
+        "staff_service_time": model.staff_service_time,
+    }
+    ok = start_training(
+        total_timesteps=req.total_timesteps,
+        sim_steps=req.sim_steps,
+        max_swaps=req.max_swaps,
+        config=config,
+    )
+    return {"started": ok}
+
+
+@app.post("/rl/stop")
+async def rl_stop() -> dict:
+    stop_training()
+    return {"ok": True}
+
+
+@app.get("/rl/status")
+async def rl_status() -> dict:
+    return get_training_state()
+
+
+@app.post("/rl/apply")
+async def rl_apply() -> dict:
+    """Apply the best layout discovered by RL to the live simulation."""
+    global model, _running
+    state = get_training_state()
+    best = state.get("best_layout")
+    if not best:
+        return {"ok": False, "error": "No optimised layout available yet"}
+
+    _running = False
+    from grid_layout import GridLayout
+    new_layout = GridLayout.from_cells(best)
+    model = CafeteriaModel(
+        spawn_rate=model.spawn_rate,
+        n_staff=model.n_staff,
+        n_ticket_machines=model.n_ticket_machines,
+        staff_service_time=model.staff_service_time,
+        custom_layout=new_layout,
+    )
+    payload = json.dumps({"type": "layout", "data": new_layout.to_serializable()})
+    await manager.broadcast(payload)
+    return {"ok": True, "layout": new_layout.to_serializable()}
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import os
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)

@@ -4,10 +4,11 @@
  * the latest simulation state + control helpers to React components.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GridLayout, SimConfig, SimState } from "../types";
+import type { GridLayout, SimConfig, SimState, NodeType } from "../types";
 
-const WS_URL  = "ws://localhost:8000/ws";
-const API_URL = "http://localhost:8000";
+const _API    = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
+const API_URL = _API;
+const WS_URL  = _API.replace(/^http/, "ws") + "/ws";
 
 interface UseSimulationReturn {
   layout:    GridLayout | null;
@@ -20,6 +21,7 @@ interface UseSimulationReturn {
   step:      (n?: number) => void;
   setSpeed:  (sps: number) => void;
   updateConfig: (cfg: Partial<SimConfig>) => void;
+  updateLayout: (cells: NodeType[][]) => void;
 }
 
 export function useSimulation(): UseSimulationReturn {
@@ -94,9 +96,7 @@ export function useSimulation(): UseSimulationReturn {
   }, [post]);
 
   const step = useCallback((n = 1) => {
-    post("/step", { n }).then(async (r) => {
-      if (r) setState((await (r as Response).json()) as SimState);
-    });
+    post("/step", { n });
     // Since post returns void, manually fetch state
     fetch(`${API_URL}/step`, {
       method: "POST",
@@ -117,8 +117,22 @@ export function useSimulation(): UseSimulationReturn {
     post("/config", merged);
   }, [post, state]);
 
+  const updateLayout = useCallback(async (cells: NodeType[][]) => {
+    setRunning(false);
+    const res = await fetch(`${API_URL}/layout/update`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cells }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setLayout(data.layout as GridLayout);
+      setState(null);
+    }
+  }, []);
+
   return {
     layout, state, connected, running,
-    play, pause, reset, step, setSpeed, updateConfig,
+    play, pause, reset, step, setSpeed, updateConfig, updateLayout,
   };
 }

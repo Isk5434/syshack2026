@@ -103,6 +103,24 @@ class GridLayout:
                 elif nt == NodeType.RETURN:
                     self.return_positions.append(pos)
 
+    @classmethod
+    def from_cells(cls, cells: list) -> "GridLayout":
+        """Create a GridLayout from a raw cells array (list of list of str)."""
+        inst = cls.__new__(cls)
+        inst.H = len(cells)
+        inst.W = len(cells[0]) if cells else GRID_W
+        inst._grid = [[NodeType(c) for c in row] for row in cells]
+        inst.n_ticket_machines = sum(1 for row in inst._grid for c in row if c == NodeType.TICKET)
+        inst.n_counters = sum(1 for row in inst._grid for c in row if c == NodeType.COUNTER)
+        inst.entry_positions = []
+        inst.ticket_positions = []
+        inst.counter_positions = []
+        inst.seat_positions = []
+        inst.return_positions = []
+        inst.passable = set()
+        inst._index()
+        return inst
+
     # ------------------------------------------------------------------
     # Public helpers
     # ------------------------------------------------------------------

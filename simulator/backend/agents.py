@@ -3,17 +3,21 @@ Agent definitions for cafeteria MAS.
 
 StudentAgent implements a Finite State Machine (FSM):
 
-  ENTERING → BUYING_TICKET → QUEUING_FOOD → FINDING_SEAT
-           → EATING → RETURNING_TRAY → EXITING → (removed)
+  ENTERING → BUYING_TICKET → FINDING_SEAT → WAITING_FOOD
+           → PICKING_UP → EATING → RETURNING_TRAY → EXITING → (removed)
 
-Abandonment follows an exponential survival function:
-    P(abandon | wait=t) = 1 - exp(-λ * t)
-where λ = (1 - patience) / avg_service_time
-
-This is grounded in Queueing Theory (M/M/c model intuition) and
-makes the simulation academically defensible for the hackathon.
+Flow:
+  1. Enter the cafeteria
+  2. Buy a ticket at the vending machine
+  3. Find a seat and sit down
+  4. Wait at the seat while staff prepares the food
+  5. Walk to the counter to pick up the food
+  6. Walk back to the seat and eat
+  7. Return the tray
+  8. Exit
 
 StaffAgent processes the counter queue at a fixed service rate.
+When food is ready, the student's ``food_ready`` flag is set.
 """
 from __future__ import annotations
 
@@ -37,8 +41,9 @@ Pos = Tuple[int, int]
 class AgentState(str, Enum):
     ENTERING       = "entering"
     BUYING_TICKET  = "buying_ticket"
-    QUEUING_FOOD   = "queuing_food"
     FINDING_SEAT   = "finding_seat"
+    WAITING_FOOD   = "waiting_food"
+    PICKING_UP     = "picking_up"
     EATING         = "eating"
     RETURNING_TRAY = "returning_tray"
     EXITING        = "exiting"
@@ -80,6 +85,7 @@ class StudentAgent(Agent):
     menu       : MenuType     – chosen at spawn
     state      : AgentState   – current FSM state
     wait_steps : int          – cumulative steps spent waiting in queues
+    food_ready : bool         – set True by StaffAgent when order is done
     """
 
     def __init__(
@@ -111,6 +117,10 @@ class StudentAgent(Agent):
         self.counter_queue_idx: Optional[int] = None
         self.seat_pos:          Optional[Pos] = None
 
+        # Food readiness – set by StaffAgent when the order is prepared
+        self.food_ready: bool = False
+        self.pickup_pos: Optional[Pos] = None   # counter position to pick up from
+
         # Abandonment: Poisson-process rate  λ = (1-patience) * base_rate
         self._abandon_rate: float = max(0.005, (1.0 - patience) * 0.03)
 
@@ -122,8 +132,9 @@ class StudentAgent(Agent):
         dispatch = {
             AgentState.ENTERING:       self._entering,
             AgentState.BUYING_TICKET:  self._buying_ticket,
-            AgentState.QUEUING_FOOD:   self._queuing_food,
             AgentState.FINDING_SEAT:   self._finding_seat,
+            AgentState.WAITING_FOOD:   self._waiting_food,
+            AgentState.PICKING_UP:     self._picking_up,
             AgentState.EATING:         self._eating,
             AgentState.RETURNING_TRAY: self._returning_tray,
             AgentState.EXITING:        self._exiting,
@@ -155,32 +166,55 @@ class StudentAgent(Agent):
         if self._should_abandon():
             self._abandon("ticket_queue")
             return
-        # Model's StaffAgent / tick machine serves from queue → signals via model
-
-    def _queuing_food(self) -> None:
-        """Wait at counter queue until food is ready, or abandon."""
-        self.wait_steps += 1
-        if self._should_abandon():
-            self._abandon("counter_queue")
-            return
+        # Ticket machine processes queue → changes state via model
 
     def _finding_seat(self) -> None:
-        """Pathfind to reserved seat."""
+        """Walk to reserved seat, then start waiting for food."""
         if not self.path and self.seat_pos:
             self.path = self.model.find_path(self.pos, self.seat_pos)
 
         moved = self._move()
         if moved and not self.path:
-            self.action_timer = random.randint(*MENU_EAT[self.menu])
+            # Seated – now wait for food to be prepared
+            self.state = AgentState.WAITING_FOOD
+
+    def _waiting_food(self) -> None:
+        """Sit at seat and wait for food_ready flag from staff."""
+        self.wait_steps += 1
+        if self._should_abandon():
+            self._abandon("counter_queue")
+            return
+        if self.food_ready:
+            # Food is ready! Go pick it up from the counter
+            self.state = AgentState.PICKING_UP
+            if self.pickup_pos:
+                # Stand just in front of counter (1 cell to the left)
+                pickup_dest = (max(1, self.pickup_pos[0] - 1), self.pickup_pos[1])
+                self.path = self.model.find_path(self.pos, pickup_dest)
+
+    def _picking_up(self) -> None:
+        """Walk to counter, pick up food, then walk back to seat."""
+        moved = self._move()
+        if moved and not self.path:
+            # Picked up food → record as served, walk back to seat
+            self.model.record_served(self)
             self.state = AgentState.EATING
+            self.action_timer = random.randint(*MENU_EAT[self.menu])
+            # Walk back to seat
+            if self.seat_pos:
+                self.path = self.model.find_path(self.pos, self.seat_pos)
 
     def _eating(self) -> None:
-        """Stay at seat for eat duration."""
+        """Walk back to seat (if not there) and eat."""
+        if self.path:
+            self._move()
+            return
         self.action_timer -= 1
         if self.action_timer <= 0:
             self.state = AgentState.RETURNING_TRAY
-            ret = self.model.layout.return_positions[0]
-            self.path = self.model.find_path(self.pos, ret)
+            if self.model.layout.return_positions:
+                ret = self.model.layout.return_positions[0]
+                self.path = self.model.find_path(self.pos, ret)
 
     def _returning_tray(self) -> None:
         """Walk to return desk."""
@@ -191,8 +225,9 @@ class StudentAgent(Agent):
                 self.model.release_seat(self.seat_pos)
                 self.seat_pos = None
             self.state = AgentState.EXITING
-            exit_pos = random.choice(self.model.layout.entry_positions)
-            self.path = self.model.find_path(self.pos, exit_pos)
+            if self.model.layout.entry_positions:
+                exit_pos = random.choice(self.model.layout.entry_positions)
+                self.path = self.model.find_path(self.pos, exit_pos)
 
     def _exiting(self) -> None:
         """Walk to exit, then remove from simulation."""
@@ -230,9 +265,14 @@ class StudentAgent(Agent):
             self.model.leave_ticket_queue(self, self.ticket_queue_idx)
         if queue_type == "counter_queue" and self.counter_queue_idx is not None:
             self.model.leave_counter_queue(self, self.counter_queue_idx)
+        # Release seat if claimed
+        if self.seat_pos:
+            self.model.release_seat(self.seat_pos)
+            self.seat_pos = None
         self.state = AgentState.EXITING
-        exit_pos = random.choice(self.model.layout.entry_positions)
-        self.path = self.model.find_path(self.pos, exit_pos)
+        if self.model.layout.entry_positions:
+            exit_pos = random.choice(self.model.layout.entry_positions)
+            self.path = self.model.find_path(self.pos, exit_pos)
 
     def to_dict(self) -> dict:
         x, y = self.pos if self.pos else (-1, -1)
@@ -254,8 +294,8 @@ class StaffAgent(Agent):
     Counter staff member.
 
     Continuously pops from the assigned counter queue, waits
-    service_time steps, then marks the student as served and
-    assigns them a seat.
+    service_time steps, then marks the student's food as ready.
+    The student will then come pick it up.
     """
 
     def __init__(
@@ -290,15 +330,15 @@ class StaffAgent(Agent):
 
     def _complete_service(self) -> None:
         student = self.current_customer
-        if student and student.state == AgentState.QUEUING_FOOD:
-            seat = self.model.claim_seat()
-            if seat:
-                student.seat_pos = seat
-                student.state    = AgentState.FINDING_SEAT
-                self.model.record_served(student)
-            else:
-                # No seats: make student wait a bit longer
-                self.model.counter_queues[self.counter_idx].insert(0, student)
+        if student and student.state == AgentState.WAITING_FOOD:
+            # Signal the student that food is ready
+            student.food_ready = True
+            # Tell student which counter to pick up from
+            counter_positions = self.model.layout.counter_positions
+            if self.counter_idx < len(counter_positions):
+                student.pickup_pos = counter_positions[self.counter_idx]
+            elif counter_positions:
+                student.pickup_pos = counter_positions[0]
         self.current_customer = None
         self.served_count += 1
 

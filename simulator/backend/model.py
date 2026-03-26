@@ -48,6 +48,7 @@ class CafeteriaModel(Model):
         n_staff:            int   = 3,
         n_ticket_machines:  int   = 3,
         staff_service_time: int   = 10,
+        custom_layout=None,
     ) -> None:
         super().__init__()
 
@@ -58,20 +59,25 @@ class CafeteriaModel(Model):
         self.staff_service_time = staff_service_time
 
         # ── Layout ───────────────────────────────────────────────────
-        self.layout = GridLayout(n_ticket_machines, n_staff)
+        if custom_layout is not None:
+            self.layout = custom_layout
+            self.n_ticket_machines = self.layout.n_ticket_machines
+            self.n_staff = max(1, len(self.layout.counter_positions))
+        else:
+            self.layout = GridLayout(n_ticket_machines, n_staff)
 
         # ── Mesa primitives ──────────────────────────────────────────
-        self.grid     = MultiGrid(GRID_W, GRID_H, torus=False)
+        self.grid     = MultiGrid(self.layout.W, self.layout.H, torus=False)
         self.schedule = RandomActivation(self)
 
         # ── Queues ───────────────────────────────────────────────────
         # ticket_queues[i] = FIFO list for ticket machine i
         self.ticket_queues:  List[Deque[StudentAgent]] = [
-            collections.deque() for _ in range(n_ticket_machines)
+            collections.deque() for _ in range(self.n_ticket_machines)
         ]
         # counter_queues[i] = list for counter / staff i
         self.counter_queues: List[List[StudentAgent]] = [
-            [] for _ in range(n_staff)
+            [] for _ in range(self.n_staff)
         ]
 
         # Seat availability set
@@ -90,16 +96,16 @@ class CafeteriaModel(Model):
         self._window_size:        int   = 20        # steps per throughput sample
 
         # ── Ticket machine timers ────────────────────────────────────
-        self._ticket_timers: List[int] = [0] * n_ticket_machines
+        self._ticket_timers: List[int] = [0] * self.n_ticket_machines
 
         # ── Staff agents ─────────────────────────────────────────────
-        for i in range(n_staff):
+        for i in range(self.n_staff):
             pos = self.layout.counter_positions[i % len(self.layout.counter_positions)]
             staff = StaffAgent(
                 unique_id=self._next_agent_id(),
                 model=self,
                 counter_idx=i,
-                service_time=staff_service_time,
+                service_time=self.staff_service_time,
             )
             self.grid.place_agent(staff, pos)
             self.schedule.add(staff)
@@ -174,16 +180,11 @@ class CafeteriaModel(Model):
             pass
 
     def join_counter_queue(self, student: StudentAgent) -> None:
+        """Add student to the shortest counter queue (virtual – they stay seated)."""
         idx = min(range(self.n_staff), key=lambda i: len(self.counter_queues[i]))
         student.counter_queue_idx = idx
         self.counter_queues[idx].append(student)
-        student.state = AgentState.QUEUING_FOOD
-
-        # Move student to waiting spot near counter
-        wait_x = self.layout.counter_positions[idx % len(self.layout.counter_positions)][0] - 2
-        wait_y = self.layout.counter_positions[idx % len(self.layout.counter_positions)][1]
-        dest = (max(1, wait_x), wait_y)
-        student.path = self.find_path(student.pos, dest)
+        # NOTE: student does NOT move to the counter; they wait at their seat.
 
     def leave_counter_queue(self, student: StudentAgent, idx: int) -> None:
         try:
@@ -202,8 +203,17 @@ class CafeteriaModel(Model):
             elif self.ticket_queues[i]:
                 student = self.ticket_queues[i].popleft()
                 if student.state == AgentState.BUYING_TICKET:
-                    # Ticket issued → join food queue
-                    self.join_counter_queue(student)
+                    # Ticket issued → claim a seat, join food queue, go sit down
+                    seat = self.claim_seat()
+                    if seat:
+                        student.seat_pos = seat
+                        student.state = AgentState.FINDING_SEAT
+                        # Also join the counter queue so staff starts preparing
+                        self.join_counter_queue(student)
+                    else:
+                        # No seats available → put back in ticket queue to retry
+                        self.ticket_queues[i].appendleft(student)
+                        continue
                 self._ticket_timers[i] = TICKET_SERVICE_TIME
 
     # ------------------------------------------------------------------
@@ -247,7 +257,7 @@ class CafeteriaModel(Model):
             a.pos for a in self.schedule.agents
             if isinstance(a, StudentAgent) and a.pos
         ]
-        density = compute_density(positions, GRID_W, GRID_H)
+        density = compute_density(positions, self.layout.W, self.layout.H)
         path = astar(self.layout.passable, start, goal, density)
         return path[1:]  # exclude start position
 
@@ -265,10 +275,10 @@ class CafeteriaModel(Model):
 
         # Density heatmap (GRID_H × GRID_W)
         positions = [a.pos for a in student_agents if a.pos]
-        density   = compute_density(positions, GRID_W, GRID_H)
+        density   = compute_density(positions, self.layout.W, self.layout.H)
         heatmap   = [
-            [round(density.get((x, y), 0.0), 3) for x in range(GRID_W)]
-            for y in range(GRID_H)
+            [round(density.get((x, y), 0.0), 3) for x in range(self.layout.W)]
+            for y in range(self.layout.H)
         ]
 
         avg_wait = (

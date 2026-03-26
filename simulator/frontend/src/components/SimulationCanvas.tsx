@@ -26,8 +26,9 @@ const NODE_COLORS: Record<string, string> = {
 const AGENT_COLORS: Record<string, string> = {
   entering:       "#a3e635",
   buying_ticket:  "#facc15",
-  queuing_food:   "#fb923c",
   finding_seat:   "#38bdf8",
+  waiting_food:   "#fb923c",
+  picking_up:     "#f59e0b",
   eating:         "#818cf8",
   returning_tray: "#c084fc",
   exiting:        "#f87171",

@@ -195,13 +195,14 @@ export const ControlPanel: React.FC<Props> = ({
       <div className="bg-gray-800/50 rounded-lg p-3 text-xs space-y-1.5">
         <p className="text-gray-500 uppercase tracking-widest text-xs mb-2">凡例</p>
         {[
-          ["#a3e635", "入場中"],
-          ["#facc15", "食券購入"],
-          ["#fb923c", "食事待ち"],
-          ["#38bdf8", "席探し"],
+          ["#a3e635", "入店中"],
+          ["#facc15", "券購入中"],
+          ["#38bdf8", "着席へ移動"],
+          ["#fb923c", "席で料理待ち"],
+          ["#f59e0b", "料理受取中"],
           ["#818cf8", "食事中"],
           ["#c084fc", "返却中"],
-          ["#f87171", "退場中"],
+          ["#f87171", "退店中"],
           ["#34d399", "スタッフ"],
         ].map(([color, label]) => (
           <div key={label} className="flex items-center gap-2">

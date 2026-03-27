@@ -19,6 +19,17 @@ const locationNames = {
     7: "キッチンカー（セントラル前）"
 };
 
+const locationMenus = {
+    1: ["Aプレート", "Bプレート", "Cプレート", "Dプレート","日替わりメニュー"],
+    2: ["日替わりAメニュー", "日替わりBメニュー", "ラーメン", "カレー"],
+    3: ["すき家", "牛丼", "チーズ牛丼", "キムチ牛丼", "マグロたたき丼",
+         "らーめんGo Hachi", "豚骨ラーメン", "味噌ラーメン", "担々麺", "からあげ",],
+    4: ["キッチンカー"],
+    5: ["A", "B", "C"],
+    6: ["1", "2", "3"],
+    7: ["い", "ろ", "は"],
+};
+
 const crowdLabels = { 1: "空いている", 2: "普通", 3: "混雑" };
 const crowdClasses = { 1: "crowd-low", 2: "crowd-mid", 3: "crowd-high" };
 
@@ -56,6 +67,35 @@ function selectLocation(id, name) {
 
     // サイドバーを先頭にスクロール
     document.querySelector('.sidebar').scrollTo({ top: 0, behavior: 'smooth' });
+
+    // ボトムメニューを表示
+    showBottomMenu(id, name);
+}
+
+function showBottomMenu(id, name) {
+    const menuPanel = document.getElementById('bottom-menu');
+    const title = document.getElementById('bottom-menu-title');
+    const list = document.getElementById('bottom-menu-list');
+
+    title.textContent = `【${name}】メニュー`;
+
+    const items = locationMenus[id] || ["メニュー情報がありません。"];
+    list.innerHTML = items.map(item => `<div class="bottom-menu-item">・${item}</div>`).join('');
+
+    menuPanel.classList.add('open');
+    menuPanel.setAttribute('aria-hidden', 'false');
+}
+
+function hideBottomMenu() {
+    const menuPanel = document.getElementById('bottom-menu');
+    menuPanel.classList.remove('open');
+    menuPanel.setAttribute('aria-hidden', 'true');
+}
+
+// 画面下部メニューのクローズボタン設定
+const bottomMenuClose = document.getElementById('bottom-menu-close');
+if (bottomMenuClose) {
+    bottomMenuClose.addEventListener('click', hideBottomMenu);
 }
 
 // ===== 画像マップのスケーリング =====

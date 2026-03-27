@@ -280,3 +280,73 @@ button[type="button"]:active {
 .crowd-low  { background: rgba(39, 174, 96, 0.3);  color: #a8e6c0; border: 1px solid rgba(39,174,96,0.6); }
 .crowd-mid  { background: rgba(243, 156, 18, 0.3); color: #f8d07a; border: 1px solid rgba(243,156,18,0.6); }
 .crowd-high { background: rgba(231, 76, 60, 0.3);  color: #f4a8a1; border: 1px solid rgba(231,76,60,0.6); }
+
+/* ボトムメニュー (左地図側) */
+.bottom-menu-panel {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    max-width: calc(100% - 28px);
+    background: rgba(10, 20, 40, 0.92);
+    border: 1px solid rgba(255,255,255,0.27);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+    transform: translateY(108%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    z-index: 5;
+    max-height: 36%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.bottom-menu-panel.open {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.bottom-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.bottom-menu-header h3 {
+    font-size: 1rem;
+    margin: 0;
+    color: #e5f4ff;
+}
+
+#bottom-menu-close {
+    border: none;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    border-radius: 999px;
+    width: 26px;
+    height: 26px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.bottom-menu-list {
+    overflow-y: auto;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.9);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px; 
+    padding: 10px 0;
+}
+
+.bottom-menu-item {
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    padding-bottom: 5px;
+    word-break: break-all;
+}

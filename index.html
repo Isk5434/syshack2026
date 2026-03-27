@@ -17,13 +17,12 @@
             <img src="m1.jpg" usemap="#ImageMap" alt="キャンパスマップ" id="campus-map" />
             <map name="ImageMap">
                 <area shape="circle" coords="487,480,35" href="#" onclick="selectLocation(1, 'アロハカフェ'); return false;" alt="アロハカフェ" />
+                <area shape="circle" coords="1067,456,37" href="#" onclick="selectLocation(2, 'セントラル食堂'); return false;" alt="セントラル食堂" />
                 <area shape="circle" coords="612,414,75" href="#" onclick="selectLocation(3, 'AITプラザ'); return false;" alt="AITプラザ" />
-                <area shape="circle" coords="758,440,95" href="#" onclick="selectLocation(2, 'キッチンカー（セントラル前）'); return false;" alt="キッチンカー（セントラル前）" />
-                <area shape="circle" coords="910,423,104" href="#" onclick="selectLocation(4, '四号館売店'); return false;" alt="四号館売店" />
-                <area shape="circle" coords="544,538,27" href="#" onclick="selectLocation(5, 'キッチンカー(四号館前)'); return false;" alt="キッチンカー２" />
-                <area shape="circle" coords="1067,456,37" href="#" onclick="selectLocation(6, '愛和会館'); return false;" alt="愛和会館" />
-                <area shape="circle" coords="1354,317,24" href="#" onclick="selectLocation(7, '四号館売店'); return false;" alt="四号館売店" />
-
+                <area shape="circle" coords="758,440,95" href="#" onclick="selectLocation(4, '愛和会館'); return false;" alt="愛和会館" />
+                <area shape="circle" coords="910,423,104" href="#" onclick="selectLocation(5, '四号館売店'); return false;" alt="四号館売店" />
+                <area shape="circle" coords="544,538,27" href="#" onclick="selectLocation(6, 'キッチンカー（一号館前）'); return false;" alt="キッチンカー（一号館前）" />
+                <area shape="circle" coords="1350,320,40" href="#" onclick="selectLocation(7, 'キッチンカー（セントラル前）'); return false;" alt="キッチンカー（セントラル前）" />
             </map>
         </div>
 
@@ -50,12 +49,12 @@
                     <label for="location">場所</label>
                     <select id="location">
                         <option value="1">アロハカフェ</option>
-                        <option value="2">愛和会館</option>
+                        <option value="2">セントラル食堂</option>
                         <option value="3">AITプラザ</option>
-                        <option value="4">キッチンカー（セントラル前）</option>
-                        <option value="5">キッチンカー（一号館）</option>
-                        <option value="6">セントラル食堂</option>
-                        <option value="7">四号館売店</option>
+                        <option value="4">愛和会館</option>
+                        <option value="5">四号館売店</option>
+                        <option value="6">キッチンカー（一号館前）</option>
+                        <option value="7">キッチンカー（セントラル前）</option>
                     </select>
 
                     <fieldset>
@@ -88,7 +87,7 @@
 
         </div>
     </div>
-    <!-- 最近の投稿 -->
+    
     <script type="module" src="script.js"></script>
 </body>
 </html>

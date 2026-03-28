@@ -18,6 +18,14 @@ POST /rl/stop          – stop training
 GET  /rl/status        – training progress + best layout
 POST /rl/apply         – apply best RL layout to the simulation
 
+Crowd prediction endpoints
+--------------------------
+POST /crowd/post               – save crowd post
+GET  /crowd/predict            – predict all 7 locations
+GET  /crowd/predict/{loc_id}   – predict single location
+GET  /crowd/posts/{loc_id}     – recent posts for location
+GET  /crowd/posts              – recent posts (all)
+
 Run:
     uvicorn main:app --reload --port 8000
 """
@@ -290,6 +298,49 @@ async def rl_apply() -> dict:
     payload = json.dumps({"type": "layout", "data": new_layout.to_serializable()})
     await manager.broadcast(payload)
     return {"ok": True, "layout": new_layout.to_serializable()}
+
+
+# ---------------------------------------------------------------------------
+# Crowd prediction endpoints
+# ---------------------------------------------------------------------------
+
+from prediction import get_all_predictions, get_prediction, get_recent_posts, save_post
+
+
+class CrowdPost(BaseModel):
+    location_id: int = Field(ge=1, le=7)
+    level: int = Field(ge=1, le=3)
+    comment: str = ""
+
+
+@app.post("/crowd/post")
+async def crowd_post(post: CrowdPost) -> dict:
+    """Save a crowd report from a student."""
+    return save_post(post.location_id, post.level, post.comment)
+
+
+@app.get("/crowd/predict")
+async def crowd_predict_all(day: int | None = None, hour: int | None = None) -> list:
+    """Predict congestion for all 7 locations (defaults to current JST time)."""
+    return get_all_predictions(day, hour)
+
+
+@app.get("/crowd/predict/{loc_id}")
+async def crowd_predict_one(loc_id: int, day: int | None = None, hour: int | None = None) -> dict:
+    """Predict congestion for a single location."""
+    return get_prediction(loc_id, day, hour)
+
+
+@app.get("/crowd/posts/{loc_id}")
+async def crowd_posts_by_location(loc_id: int) -> list:
+    """Get recent posts for a specific location."""
+    return get_recent_posts(loc_id, limit=20)
+
+
+@app.get("/crowd/posts")
+async def crowd_posts_all() -> list:
+    """Get recent posts across all locations."""
+    return get_recent_posts(limit=20)
 
 
 # ---------------------------------------------------------------------------

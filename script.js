@@ -1,6 +1,6 @@
 // 投稿データ（場所IDごとに管理）
 const posts = {
-    1: [{ level: 2, text: "日替わりのハンバーグが美味しかったです！" }],
+    1: [],
     2: [],
     3: [],
     4: [],
@@ -9,32 +9,24 @@ const posts = {
     7: []
 };
 
+let currentUser = null; // 現在のログインユーザー
+
 const locationNames = {
     1: "アロハカフェ",
-    2: "AITプラザ",
-    3: "愛和会館",
-    4: "セントラル食堂",
-    5: "キッチンカー（セントラル前）",
-    6: "キッチンカー（一号館前）",
+    2: "愛和会館",
+    3: "AITプラザ",
+    4: "キッチンカー（セントラル前）",
+    5: "キッチンカー（一号館）",
+    6: "セントラル食堂",
     7: "四号館売店"
-};
-
-const locationMenus = {
-    1: ["Aプレート OOO円", "Bプレート OOO円", "Cプレート OOO円", "Dプレート OOO円","日替わりメニュー OOO円"],
-    2: ["日替わりAメニュー OOO円", "日替わりBメニュー OOO円", "ラーメン OOO円", "カレー OOO円"],
-    3: ["すき家", "牛丼 OOO円", "チーズ牛丼 OOO円", "キムチ牛丼 OOO円", "マグロたたき丼 OOO円",
-         "らーめんGo Hachi", "豚骨ラーメン OOO円", "味噌ラーメン OOO円", "担々麺 OOO円", "からあげ OOO円",],
-    4: ["キッチンカー"],
-    5: ["A", "B", "C"],
-    6: ["1", "2", "3"],
-    7: ["i", "r", "h"],
 };
 
 const crowdLabels = { 1: "空いている", 2: "普通", 3: "混雑" };
 const crowdClasses = { 1: "crowd-low", 2: "crowd-mid", 3: "crowd-high" };
 
 // 場所をクリックしたときにサイドバーに情報表示
-function selectLocation(id, name) {
+function selectLocation(id) {
+    const name = locationNames[id] || "不明な場所";
     // フォームの場所も連動
     document.getElementById('location').value = id;
 
@@ -59,7 +51,7 @@ function selectLocation(id, name) {
     const postsDiv = document.getElementById('info-posts');
     if (locationPosts.length > 0) {
         postsDiv.innerHTML = locationPosts.slice(-3).reverse().map(p =>
-            `<div style="margin-top:6px;">「${p.text}」</div>`
+            `<div style="margin-top:6px;">「${p.text}」 - ${p.userName}</div>`
         ).join('');
     } else {
         postsDiv.innerHTML = '';
@@ -67,35 +59,6 @@ function selectLocation(id, name) {
 
     // サイドバーを先頭にスクロール
     document.querySelector('.sidebar').scrollTo({ top: 0, behavior: 'smooth' });
-
-    // ボトムメニューを表示
-    showBottomMenu(id, name);
-}
-
-function showBottomMenu(id, name) {
-    const menuPanel = document.getElementById('bottom-menu');
-    const title = document.getElementById('bottom-menu-title');
-    const list = document.getElementById('bottom-menu-list');
-
-    title.textContent = `【${name}】メニュー`;
-
-    const items = locationMenus[id] || ["メニュー情報がありません。"];
-    list.innerHTML = items.map(item => `<div class="bottom-menu-item">・${item}</div>`).join('');
-
-    menuPanel.classList.add('open');
-    menuPanel.setAttribute('aria-hidden', 'false');
-}
-
-function hideBottomMenu() {
-    const menuPanel = document.getElementById('bottom-menu');
-    menuPanel.classList.remove('open');
-    menuPanel.setAttribute('aria-hidden', 'true');
-}
-
-// 画面下部メニューのクローズボタン設定
-const bottomMenuClose = document.getElementById('bottom-menu-close');
-if (bottomMenuClose) {
-    bottomMenuClose.addEventListener('click', hideBottomMenu);
 }
 
 // ===== 画像マップのスケーリング =====
@@ -150,11 +113,17 @@ mapImg.addEventListener('load', scaleImageMap);
 if (mapImg.complete) scaleImageMap();
 window.addEventListener('resize', scaleImageMap);
 
-import { db } from "./firebase.js";
-import { collection, addDoc, query, where, getDocs, serverTimestamp } from "firebase/firestore";
+import { db, signInWithGoogle, signOutUser, onAuthStateChange } from "./firebase.js";
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, where, getDocs } from "firebase/firestore";
 
-// 投稿をFirebaseに保存する（ローカルUIも更新）
+// 投稿をFirebaseに保存する（リアルタイムリスナーがUIを自動更新）
 async function submitPost() {
+    // ログイン確認
+    if (!currentUser) {
+        alert("投稿するにはログインが必要です。");
+        return;
+    }
+
     const locationId = parseInt(document.getElementById('location').value);
     const comment = document.getElementById('menu').value.trim();
     const levelInput = document.querySelector('input[name="level"]:checked');
@@ -171,46 +140,119 @@ async function submitPost() {
     const level = parseInt(levelInput.value);
     const locName = locationNames[locationId] || "不明な場所";
 
-    // ローカル表示に追加
-    if (!posts[locationId]) posts[locationId] = [];
-    posts[locationId].push({ level, text: comment });
-
-    const postList = document.getElementById('post-list');
-    const newPost = document.createElement('div');
-    newPost.className = 'post-item';
-    newPost.innerHTML = `
-        <strong>${locName}</strong>
-        <span class="crowd-badge ${crowdClasses[level]}">${crowdLabels[level]}</span><br>
-        <small>「${comment}」</small>
-    `;
-    postList.prepend(newPost);
-
-    // 直後にサイドバーを更新
-    selectLocation(locationId, locName);
-
+    // Firestore へ投稿を保存
     try {
-        await addDoc(collection(db, "posts"), {
+        const docRef = await addDoc(collection(db, "posts"), {
             locationId: locationId,
             level: level,
             comment: comment,
+            userId: currentUser.uid,
+            userName: currentUser.displayName,
+            userEmail: currentUser.email,
             timestamp: serverTimestamp()
         });
 
-        alert("投稿しました！");
-    } catch (e) {
-        console.error("Error adding document: ", e);
-        alert("投稿を保存できませんでした。ネットワークまたはFireStore設定を確認してください。");
-    }
+        console.log("✅ Firestore へ投稿を追加しました (ID:", docRef.id, ")");
 
-    document.getElementById('status-form').reset();
-    updateAverageCrowd(locationId);
+        // フォームをリセット
+        document.getElementById('status-form').reset();
+
+        alert("投稿しました！");
+
+        // リアルタイムリスナーが自動でUIを更新するので、ここでは何もしない
+        
+    } catch (e) {
+        console.error("❌ Firestore への保存エラー:", e);
+        alert("投稿を保存できませんでした。\n\nエラー詳細: " + e.message + "\n\n→ ブラウザコンソール(F12)で詳細を確認してください");
+    }
 }
 
 // グローバル関数化（モジュールとインラインイベント対応）
 window.selectLocation = selectLocation;
 window.submitPost = submitPost;
 
-// 特定の場所の混雑度を平均化して算出する
+// ============= Firestore 連携 =============
+
+// Firestore から全投稿をリアルタイムで読み込み
+function setupRealtimePostsListener() {
+    const q = query(collection(db, "posts"), orderBy("timestamp", "desc"));
+    
+    return onSnapshot(q, (querySnapshot) => {
+        // posts配列をクリア
+        Object.keys(posts).forEach(key => {
+            posts[key] = [];
+        });
+        
+        let loadedCount = 0;
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            const locId = data.locationId;
+            
+            if (!posts[locId]) posts[locId] = [];
+            posts[locId].push({
+                level: data.level,
+                text: data.comment || "",
+                userName: data.userName || "匿名",
+                docId: doc.id,
+                timestamp: data.timestamp
+            });
+            loadedCount++;
+        });
+        
+        console.log(`🔄 Firestore から ${loadedCount} 件の投稿をリアルタイム更新しました`);
+        updateUIFromPosts();
+        
+        // 現在表示中の場所があれば更新
+        const currentLocationId = document.getElementById('location').value;
+        if (currentLocationId) {
+            selectLocation(parseInt(currentLocationId, 10));
+        }
+    }, (error) => {
+        console.error("❌ Firestore リアルタイムリスナーエラー:", error);
+    });
+}
+
+// ローカル posts データから UI を再構築
+function updateUIFromPosts() {
+    const postList = document.getElementById('post-list');
+    postList.innerHTML = "";
+    
+    // 全投稿を収集してソート
+    let allPosts = [];
+    for (const locId in posts) {
+        posts[locId].forEach(post => {
+            allPosts.push({
+                ...post,
+                locationId: locId,
+                locationName: locationNames[locId] || "不明"
+            });
+        });
+    }
+    
+    // timestampで降順ソート（最新のものが上）
+    allPosts.sort((a, b) => {
+        if (!a.timestamp || !b.timestamp) return 0;
+        return b.timestamp.toMillis() - a.timestamp.toMillis();
+    });
+    
+    // 最新5件を表示
+    const recentPosts = allPosts.slice(0, 5);
+    
+    recentPosts.forEach(post => {
+        const postEl = document.createElement('div');
+        postEl.className = 'post-item';
+        postEl.innerHTML = `
+            <strong>${post.locationName}</strong>
+            <span class="crowd-badge ${crowdClasses[post.level]}">${crowdLabels[post.level]}</span><br>
+            <small>「${post.text}」 - ${post.userName}</small>
+        `;
+        postList.appendChild(postEl);
+    });
+    
+    console.log(`🎨 UI を更新しました (最新 ${recentPosts.length} 件の投稿表示)`);
+}
+
+// ============= 特定の場所の混雑度を平均化 =============
 async function updateAverageCrowd(locationId) {
     const q = query(collection(db, "posts"), where("locationId", "==", locationId));
     const querySnapshot = await getDocs(q);
@@ -230,4 +272,87 @@ async function updateAverageCrowd(locationId) {
     console.log(`場所ID: ${locationId} の平均混雑度: ${average} (判定: ${roundedLevel})`);
     
     return { average, roundedLevel };
+}
+
+// ============= 認証関連 =============
+
+// 認証UIを更新
+function updateAuthUI(user) {
+    const userInfo = document.getElementById('user-info');
+    const loginBtn = document.getElementById('login-btn');
+    const userName = document.getElementById('user-name');
+    const logoutBtn = document.getElementById('logout-btn');
+    const loginRequired = document.getElementById('login-required');
+    const postForm = document.querySelector('.post-form');
+
+    if (user) {
+        userInfo.style.display = 'flex';
+        loginBtn.style.display = 'none';
+        userName.textContent = `こんにちは、${user.displayName}さん`;
+        loginRequired.style.display = 'none';
+        postForm.style.opacity = '1';
+        currentUser = user;
+    } else {
+        userInfo.style.display = 'none';
+        loginBtn.style.display = 'block';
+        loginRequired.style.display = 'block';
+        postForm.style.opacity = '0.6';
+        currentUser = null;
+    }
+}
+
+// Googleログイン処理
+async function handleLogin() {
+    try {
+        const user = await signInWithGoogle();
+        updateAuthUI(user);
+        alert('ログインしました！');
+    } catch (error) {
+        console.error('ログインエラー:', error);
+        alert('ログインに失敗しました。');
+    }
+}
+
+// ログアウト処理
+async function handleLogout() {
+    try {
+        await signOutUser();
+        updateAuthUI(null);
+        alert('ログアウトしました。');
+    } catch (error) {
+        console.error('ログアウトエラー:', error);
+        alert('ログアウトに失敗しました。');
+    }
+}
+
+// ============= ページロード初期化 =============
+console.log("📄 script.js ロード開始...");
+
+// 認証状態監視を開始
+onAuthStateChange((user) => {
+    updateAuthUI(user);
+});
+
+// イベントリスナー設定
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('login-btn').addEventListener('click', handleLogin);
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+});
+
+// ページ読み込み完了時に Firestore リアルタイムリスナーをセットアップ
+async function initializeApp() {
+    console.log("🚀 アプリケーション初期化 - Firestore リアルタイムリスナーをセットアップ中...");
+    const unsubscribe = setupRealtimePostsListener();
+    console.log(`✅ リアルタイムリスナーをセットアップしました`);
+    
+    // クリーンアップ用（ページ離脱時にリスナーを解除）
+    window.addEventListener('beforeunload', unsubscribe);
+}
+
+// DOMContentLoaded 待機
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+    // ドキュメント既にロード済みの場合
+    initializeApp();
 }
